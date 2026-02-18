@@ -192,6 +192,6 @@ Open source under the [MIT License](LICENSE) — use it, modify it, share it.
 
 **⭐ If you find this useful, give it a star!**
 
-Made with ❤️ and AI
+**Brainstorming with AI**
 
 </div>
