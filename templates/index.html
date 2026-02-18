@@ -350,13 +350,34 @@
             </div>
 
             <!-- Generate Button -->
-            <div class="p-5 pt-0 shrink-0">
+            <div class="p-5 pt-0 shrink-0 space-y-3">
                 <button onclick="startGeneration()" id="generateBtn"
                     class="w-full bg-slate-900 dark:bg-blue-600 hover:bg-slate-800 dark:hover:bg-blue-700 text-white font-medium py-3.5 rounded-xl transition active:scale-[0.98] flex justify-center items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100 shadow-lg shadow-slate-900/10 dark:shadow-blue-600/20">
                     <span id="btnText">Generate Content</span>
                     <span id="btnLoader" class="spinner hidden"></span>
                 </button>
-                <p class="text-center text-[10px] text-slate-400 dark:text-slate-500 mt-2">
+
+                <!-- Quick Download -->
+                <div class="flex items-center gap-2 mt-1">
+                    <div class="h-px flex-grow bg-slate-200 dark:bg-slate-600"></div>
+                    <span class="text-[10px] text-slate-400 dark:text-slate-500 font-medium uppercase tracking-wider">or
+                        download</span>
+                    <div class="h-px flex-grow bg-slate-200 dark:bg-slate-600"></div>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="startDownload('video')" id="dlVideoBtn"
+                        class="flex items-center justify-center gap-2 py-2.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 text-xs font-medium rounded-lg transition active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed">
+                        <i class="fa-solid fa-video text-emerald-500"></i>
+                        <span>Video MP4</span>
+                    </button>
+                    <button onclick="startDownload('audio')" id="dlAudioBtn"
+                        class="flex items-center justify-center gap-2 py-2.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 text-xs font-medium rounded-lg transition active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed">
+                        <i class="fa-solid fa-music text-purple-500"></i>
+                        <span>Audio MP3</span>
+                    </button>
+                </div>
+
+                <p class="text-center text-[10px] text-slate-400 dark:text-slate-500">
                     Ctrl+Enter to generate · Supports FB, YT, IG, TikTok
                 </p>
             </div>
@@ -839,6 +860,97 @@
             a.click();
             URL.revokeObjectURL(a.href);
             toast(`Downloaded as .${ext}`, 'success', 2000);
+        }
+
+        // ===================== DOWNLOAD (VIDEO/AUDIO) =====================
+        let dlJobId = null;
+        let dlPollInterval = null;
+
+        async function startDownload(fmt) {
+            const url = document.getElementById('urlInput').value.trim();
+            if (!url) return toast('Please paste a video URL.', 'warning');
+
+            // Disable buttons
+            const vBtn = document.getElementById('dlVideoBtn');
+            const aBtn = document.getElementById('dlAudioBtn');
+            vBtn.disabled = true;
+            aBtn.disabled = true;
+
+            // Show progress
+            resetProgress();
+            document.getElementById('progressArea').classList.remove('hidden');
+            document.getElementById('emptyState').classList.add('hidden');
+
+            try {
+                const res = await fetch('/api/download', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url, format: fmt })
+                });
+                const data = await res.json();
+
+                if (!data.success) { toast(data.error, 'error', 6000); resetDownloadUI(); return; }
+
+                dlJobId = data.job_id;
+                pollDownload(fmt);
+            } catch (e) {
+                toast('Request failed.', 'error');
+                resetDownloadUI();
+            }
+        }
+
+        function pollDownload(fmt) {
+            dlPollInterval = setInterval(async () => {
+                try {
+                    const res = await fetch(`/api/status/${dlJobId}`);
+                    const job = await res.json();
+                    updateProgress(job);
+
+                    if (job.status === 'done') {
+                        clearInterval(dlPollInterval);
+                        toast(`${fmt === 'video' ? 'Video' : 'Audio'} ready! Starting download...`, 'success');
+
+                        // Show download info in the result area
+                        const el = document.getElementById('textContent');
+                        el.innerHTML = `
+                            <div class="flex flex-col items-center justify-center py-12 text-center">
+                                <div class="w-16 h-16 rounded-2xl ${fmt === 'video' ? 'bg-emerald-100 dark:bg-emerald-900/30' : 'bg-purple-100 dark:bg-purple-900/30'} flex items-center justify-center mb-4">
+                                    <i class="fa-solid ${fmt === 'video' ? 'fa-video text-emerald-500' : 'fa-music text-purple-500'} text-2xl"></i>
+                                </div>
+                                <h3 class="font-semibold text-base mb-1">${job.video_title || 'Download'}</h3>
+                                <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">${job.download_size_mb} MB · ${fmt.toUpperCase()}</p>
+                                <a href="/api/download/file/${dlJobId}" 
+                                   class="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition text-sm shadow-lg shadow-blue-600/20">
+                                    <i class="fa-solid fa-download"></i> Download ${fmt === 'video' ? 'Video' : 'Audio'}
+                                </a>
+                            </div>
+                        `;
+                        el.className = 'prose max-w-none dark:text-slate-200';
+                        el.classList.remove('hidden');
+                        document.getElementById('emptyState').classList.add('hidden');
+                        hideToolbarButtons();
+
+                        // Auto-trigger download
+                        window.location.href = `/api/download/file/${dlJobId}`;
+
+                        resetDownloadUI();
+                        setTimeout(() => document.getElementById('progressArea').classList.add('hidden'), 1500);
+                    } else if (job.status === 'error') {
+                        clearInterval(dlPollInterval);
+                        toast(job.error, 'error', 8000);
+                        resetDownloadUI();
+                        document.getElementById('progressArea').classList.add('hidden');
+                    }
+                } catch (e) {
+                    clearInterval(dlPollInterval);
+                    toast('Lost connection.', 'error');
+                    resetDownloadUI();
+                }
+            }, 800);
+        }
+
+        function resetDownloadUI() {
+            document.getElementById('dlVideoBtn').disabled = false;
+            document.getElementById('dlAudioBtn').disabled = false;
         }
 
         // ===================== UI RESET =====================

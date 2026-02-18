@@ -1,6 +1,7 @@
 """
-FB AI Studio — Backend
+VidAI Studio — Backend
 Converts video audio into AI-generated content using Google Gemini.
+Also supports direct video/audio download.
 """
 
 import os
@@ -15,7 +16,7 @@ import threading
 
 import yt_dlp
 import google.generativeai as genai
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_file
 from datetime import datetime
 
 # ──────────────────────────────────────────────
@@ -290,6 +291,84 @@ def _process_video(job_id, video_url, lang, style, api_key, model_id, custom_ins
 
 
 # ──────────────────────────────────────────────
+# Download worker (video/audio without AI)
+# ──────────────────────────────────────────────
+
+def _download_media(job_id, video_url, fmt):
+    """Download video or audio file. fmt = 'video' | 'audio'."""
+    try:
+        _update_job(job_id, step="downloading", progress=20,
+                    message=f"Downloading {fmt} from video...")
+        log.info("[%s] Downloading %s as %s", job_id, video_url[:60], fmt)
+
+        ts = int(time.time())
+
+        if fmt == "audio":
+            ext = "mp3"
+            out_template = os.path.join(TEMP_DIR, f"dl_{ts}")
+            ydl_opts = {
+                "format": "bestaudio/best",
+                "outtmpl": out_template,
+                "postprocessors": [{
+                    "key": "FFmpegExtractAudio",
+                    "preferredcodec": "mp3",
+                    "preferredquality": "192",
+                }],
+                "quiet": True,
+                "no_warnings": True,
+            }
+            expected_path = out_template + ".mp3"
+        else:
+            ext = "mp4"
+            out_template = os.path.join(TEMP_DIR, f"dl_{ts}.%(ext)s")
+            ydl_opts = {
+                "format": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+                "outtmpl": out_template,
+                "merge_output_format": "mp4",
+                "quiet": True,
+                "no_warnings": True,
+            }
+            expected_path = None  # will find after download
+
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(video_url, download=True)
+            video_title = info.get("title", "download")
+
+        # Find the downloaded file
+        if fmt == "audio":
+            dl_path = expected_path
+        else:
+            # yt-dlp fills in the extension
+            import glob
+            candidates = glob.glob(os.path.join(TEMP_DIR, f"dl_{ts}.*"))
+            dl_path = candidates[0] if candidates else None
+            if dl_path:
+                ext = os.path.splitext(dl_path)[1].lstrip(".")
+
+        if not dl_path or not os.path.exists(dl_path):
+            _update_job(job_id, status="error", step="failed", progress=0,
+                        error="Download failed. The video may be private or unavailable.")
+            return
+
+        size_mb = os.path.getsize(dl_path) / (1024 * 1024)
+        safe_title = re.sub(r'[^\w\s\-]', '', video_title).strip()[:60] or "download"
+        filename = f"{safe_title}.{ext}"
+
+        _update_job(job_id, status="done", step="done", progress=100,
+                    message=f"{fmt.capitalize()} ready to download ({size_mb:.1f} MB)",
+                    video_title=video_title,
+                    download_path=dl_path,
+                    download_filename=filename,
+                    download_size_mb=round(size_mb, 1))
+        log.info("[%s] Download ready: %s (%.1f MB)", job_id, filename, size_mb)
+
+    except Exception as exc:
+        log.exception("[%s] Download failed", job_id)
+        _update_job(job_id, status="error", step="failed", progress=0,
+                    error=f"Download failed: {str(exc)[:150]}")
+
+
+# ──────────────────────────────────────────────
 # Routes
 # ──────────────────────────────────────────────
 
@@ -406,6 +485,67 @@ def delete_history_item(item_id):
 def clear_history():
     _save_json(HISTORY_FILE, [])
     return jsonify({"success": True})
+
+
+# — Download (video/audio) —
+
+@app.route("/api/download", methods=["POST"])
+def start_download():
+    data = request.json or {}
+    url = data.get("url", "").strip()
+    fmt = data.get("format", "video")  # 'video' or 'audio'
+
+    if not url:
+        return jsonify({"success": False, "error": "URL is required."}), 400
+    if not validate_url(url):
+        return jsonify({"success": False, "error": "Invalid URL format."}), 400
+    if fmt not in ("video", "audio"):
+        return jsonify({"success": False, "error": "Format must be 'video' or 'audio'."}), 400
+
+    job_id = uuid.uuid4().hex[:8]
+    with _jobs_lock:
+        _jobs[job_id] = {
+            "status": "running",
+            "step": "queued",
+            "progress": 0,
+            "message": "Starting download…",
+            "result": None,
+            "error": None,
+            "video_title": None,
+            "url": url,
+            "platform": detect_platform(url),
+            "download_path": None,
+            "download_filename": None,
+            "download_size_mb": None,
+        }
+
+    thread = threading.Thread(
+        target=_download_media,
+        args=(job_id, url, fmt),
+        daemon=True,
+    )
+    thread.start()
+    log.info("Download job %s started (%s) for %s", job_id, fmt, url[:60])
+
+    return jsonify({"success": True, "job_id": job_id})
+
+
+@app.route("/api/download/file/<job_id>", methods=["GET"])
+def serve_download(job_id):
+    with _jobs_lock:
+        job = _jobs.get(job_id)
+    if not job:
+        return jsonify({"error": "Job not found."}), 404
+    if job.get("status") != "done" or not job.get("download_path"):
+        return jsonify({"error": "File not ready."}), 400
+
+    path = job["download_path"]
+    name = job.get("download_filename", "download")
+
+    if not os.path.exists(path):
+        return jsonify({"error": "File expired. Please download again."}), 410
+
+    return send_file(path, as_attachment=True, download_name=name)
 
 
 # ──────────────────────────────────────────────
