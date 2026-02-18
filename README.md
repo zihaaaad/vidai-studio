@@ -143,6 +143,10 @@ Your API key is stored **locally** in `config.json` — it is never sent anywher
 
 📧 [zihad.connects@gmail.com](mailto:zihad.connects@gmail.com)
 
+[![Facebook](https://img.shields.io/badge/Facebook-1877F2?style=flat-square&logo=facebook&logoColor=white)](https://www.facebook.com/pkmzihad10)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-0A66C2?style=flat-square&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/pkmzihad/)
+[![X](https://img.shields.io/badge/X-000000?style=flat-square&logo=x&logoColor=white)](https://x.com/pkmzihad)
+
 </div>
 
 <br/>
