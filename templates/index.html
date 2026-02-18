@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FB AI Studio</title>
+    <meta name="description"
+        content="Convert video content into professional articles, summaries, and transcripts using AI.">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        bangla: ['Hind Siliguri', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .font-bangla {
+            font-family: 'Hind Siliguri', sans-serif;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 5px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #94A3B8;
+            border-radius: 3px;
+        }
+
+        .dark ::-webkit-scrollbar-thumb {
+            background: #475569;
+        }
+
+        /* Spinner */
+        .spinner {
+            width: 18px;
+            height: 18px;
+            border: 2px solid currentColor;
+            border-bottom-color: transparent;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Progress bar animation */
+        .progress-fill {
+            transition: width 0.5s ease-out;
+        }
+
+        /* Toast animation */
+        .toast-enter {
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .toast-exit {
+            animation: slideOut 0.3s ease-in forwards;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
+
+        /* Collapsible */
+        .collapsible {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease, opacity 0.2s ease;
+            opacity: 0;
+        }
+
+        .collapsible.open {
+            max-height: 300px;
+            opacity: 1;
+        }
+
+        /* Prose */
+        .prose h1,
+        .prose h2,
+        .prose h3 {
+            font-weight: 700;
+            margin-top: 1.2em;
+            margin-bottom: 0.4em;
+            line-height: 1.3;
+        }
+
+        .prose p {
+            margin-bottom: 0.8em;
+            line-height: 1.75;
+        }
+
+        .prose ul,
+        .prose ol {
+            padding-left: 1.5em;
+            margin-bottom: 0.8em;
+        }
+
+        .prose ul {
+            list-style-type: disc;
+        }
+
+        .prose ol {
+            list-style-type: decimal;
+        }
+
+        .prose strong {
+            font-weight: 600;
+        }
+
+        .prose code {
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.85em;
+        }
+
+        /* History drawer */
+        .history-drawer {
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+        }
+
+        .history-drawer.open {
+            transform: translateX(0);
+        }
+
+        /* Step indicator */
+        .step-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            transition: all 0.3s;
+        }
+
+        .step-dot.active {
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+        }
+
+        .step-line {
+            height: 2px;
+            transition: background-color 0.3s;
+        }
+
+        /* Platform badge colors */
+        .badge-facebook {
+            background: #1877F2;
+        }
+
+        .badge-youtube {
+            background: #FF0000;
+        }
+
+        .badge-instagram {
+            background: #E4405F;
+        }
+
+        .badge-tiktok {
+            background: #000000;
+        }
+
+        .badge-twitter {
+            background: #1DA1F2;
+        }
+
+        .badge-other {
+            background: #6B7280;
+        }
+    </style>
+</head>
+
+<body
+    class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 h-screen flex items-center justify-center p-3 md:p-5 transition-colors duration-300">
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="fixed top-4 right-4 z-[100] flex flex-col gap-2 max-w-sm"></div>
+
+    <!-- Main Layout -->
+    <div
+        class="w-full max-w-6xl bg-white dark:bg-slate-800 rounded-2xl shadow-xl shadow-slate-200/50 dark:shadow-slate-900/50 border border-slate-200 dark:border-slate-700 flex flex-col md:flex-row overflow-hidden h-[92vh] relative">
+
+        <!-- ==================== SIDEBAR ==================== -->
+        <div
+            class="w-full md:w-[340px] bg-slate-50 dark:bg-slate-800/50 border-r border-slate-200 dark:border-slate-700 flex flex-col shrink-0">
+
+            <!-- Header bar -->
+            <div
+                class="h-14 px-5 flex justify-between items-center border-b border-slate-200 dark:border-slate-700 shrink-0">
+                <div class="flex items-center gap-2">
+                    <i class="fa-brands fa-facebook text-blue-600 dark:text-blue-400 text-xl"></i>
+                    <h1 class="font-bold text-base tracking-tight">AI Studio</h1>
+                </div>
+                <div class="flex items-center gap-1">
+                    <button onclick="toggleHistory()"
+                        class="p-2 text-slate-400 hover:text-slate-700 dark:hover:text-white transition rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"
+                        title="History">
+                        <i class="fa-solid fa-clock-rotate-left text-sm"></i>
+                    </button>
+                    <button onclick="toggleDarkMode()"
+                        class="p-2 text-slate-400 hover:text-slate-700 dark:hover:text-white transition rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"
+                        title="Toggle theme">
+                        <i id="themeIcon" class="fa-solid fa-moon text-sm"></i>
+                    </button>
+                    <button onclick="openSettings()"
+                        class="p-2 text-slate-400 hover:text-slate-700 dark:hover:text-white transition rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"
+                        title="Settings">
+                        <i class="fa-solid fa-gear text-sm"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Controls (scrollable) -->
+            <div class="flex-grow overflow-y-auto p-5 space-y-4">
+
+                <!-- URL Input -->
+                <div>
+                    <label
+                        class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Video
+                        URL</label>
+                    <div class="relative">
+                        <input type="url" id="urlInput" placeholder="Paste any video link..."
+                            class="w-full p-3 pr-10 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-sm placeholder-slate-400 dark:placeholder-slate-500 transition focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10">
+                        <span id="platformBadge"
+                            class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-500">
+                            <i class="fa-solid fa-link text-xs"></i>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Model -->
+                <div>
+                    <label
+                        class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">AI
+                        Model</label>
+                    <select id="modelInput"
+                        class="w-full p-3 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-sm cursor-pointer transition focus:outline-none focus:border-blue-500">
+                    </select>
+                </div>
+
+                <!-- Language -->
+                <div>
+                    <label
+                        class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Language</label>
+                    <select id="langInput"
+                        class="w-full p-3 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-sm cursor-pointer transition focus:outline-none focus:border-blue-500">
+                        <option value="Bengali">Bengali (বাংলা)</option>
+                        <option value="English">English</option>
+                        <option value="Hindi">Hindi (हिन्दी)</option>
+                        <option value="Arabic">Arabic (العربية)</option>
+                        <option value="Urdu">Urdu (اردو)</option>
+                        <option value="Spanish">Spanish (Español)</option>
+                    </select>
+                </div>
+
+                <!-- Style -->
+                <div>
+                    <label
+                        class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Output
+                        Style</label>
+                    <div class="grid grid-cols-2 gap-1.5">
+                        <label
+                            class="style-option flex items-center gap-2 p-2.5 border border-slate-200 dark:border-slate-600 rounded-lg cursor-pointer hover:border-blue-400 transition text-xs font-medium">
+                            <input type="radio" name="style" value="Summary" checked
+                                class="text-blue-600 h-3.5 w-3.5 focus:ring-blue-500">
+                            <span>Summary</span>
+                        </label>
+                        <label
+                            class="style-option flex items-center gap-2 p-2.5 border border-slate-200 dark:border-slate-600 rounded-lg cursor-pointer hover:border-blue-400 transition text-xs font-medium">
+                            <input type="radio" name="style" value="Blog Article"
+                                class="text-blue-600 h-3.5 w-3.5 focus:ring-blue-500">
+                            <span>Article</span>
+                        </label>
+                        <label
+                            class="style-option flex items-center gap-2 p-2.5 border border-slate-200 dark:border-slate-600 rounded-lg cursor-pointer hover:border-blue-400 transition text-xs font-medium">
+                            <input type="radio" name="style" value="Transcript"
+                                class="text-blue-600 h-3.5 w-3.5 focus:ring-blue-500">
+                            <span>Transcript</span>
+                        </label>
+                        <label
+                            class="style-option flex items-center gap-2 p-2.5 border border-slate-200 dark:border-slate-600 rounded-lg cursor-pointer hover:border-blue-400 transition text-xs font-medium">
+                            <input type="radio" name="style" value="Social Post"
+                                class="text-blue-600 h-3.5 w-3.5 focus:ring-blue-500">
+                            <span>Social Post</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Custom Instruction -->
+                <div>
+                    <button onclick="toggleCustomInstruction()"
+                        class="flex items-center gap-1.5 w-full text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5 hover:text-slate-700 dark:hover:text-slate-300 transition">
+                        <i id="ciChevron"
+                            class="fa-solid fa-chevron-right text-[9px] transition-transform duration-200"></i>
+                        Custom Instruction
+                        <span class="text-[10px] normal-case font-normal ml-auto">(optional)</span>
+                    </button>
+                    <div id="ciWrapper" class="collapsible">
+                        <textarea id="ciInput" rows="3" placeholder="e.g., Focus on the speaker's main arguments..."
+                            class="w-full p-3 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-sm placeholder-slate-400 dark:placeholder-slate-500 transition focus:outline-none focus:border-blue-500 resize-none"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Generate Button -->
+            <div class="p-5 pt-0 shrink-0">
+                <button onclick="startGeneration()" id="generateBtn"
+                    class="w-full bg-slate-900 dark:bg-blue-600 hover:bg-slate-800 dark:hover:bg-blue-700 text-white font-medium py-3.5 rounded-xl transition active:scale-[0.98] flex justify-center items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100 shadow-lg shadow-slate-900/10 dark:shadow-blue-600/20">
+                    <span id="btnText">Generate Content</span>
+                    <span id="btnLoader" class="spinner hidden"></span>
+                </button>
+                <p class="text-center text-[10px] text-slate-400 dark:text-slate-500 mt-2">
+                    Ctrl+Enter to generate · Supports FB, YT, IG, TikTok
+                </p>
+            </div>
+        </div>
+
+        <!-- ==================== MAIN CONTENT ==================== -->
+        <div class="w-full flex flex-col relative bg-white dark:bg-slate-800">
+
+            <!-- Toolbar -->
+            <div
+                class="h-14 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center px-5 md:px-6 shrink-0">
+                <div class="flex items-center gap-3">
+                    <h2 class="font-semibold text-sm">Result</h2>
+                    <span id="wordCount" class="text-[11px] text-slate-400 dark:text-slate-500 hidden">0 words</span>
+                </div>
+                <div class="flex gap-1.5">
+                    <button onclick="exportAs('md')" id="exportMd"
+                        class="px-2.5 py-1.5 text-[11px] font-medium text-slate-500 bg-slate-100 dark:bg-slate-700 dark:text-slate-400 rounded hover:bg-slate-200 dark:hover:bg-slate-600 transition hidden"
+                        title="Download as Markdown">
+                        <i class="fa-solid fa-file-arrow-down mr-1"></i>.md
+                    </button>
+                    <button onclick="exportAs('txt')" id="exportTxt"
+                        class="px-2.5 py-1.5 text-[11px] font-medium text-slate-500 bg-slate-100 dark:bg-slate-700 dark:text-slate-400 rounded hover:bg-slate-200 dark:hover:bg-slate-600 transition hidden"
+                        title="Download as Text">
+                        <i class="fa-solid fa-file-arrow-down mr-1"></i>.txt
+                    </button>
+                    <button onclick="copyText()" id="copyBtn"
+                        class="px-2.5 py-1.5 text-[11px] font-medium text-slate-500 bg-slate-100 dark:bg-slate-700 dark:text-slate-400 rounded hover:bg-slate-200 dark:hover:bg-slate-600 transition hidden">
+                        <i class="fa-regular fa-copy mr-1"></i>Copy
+                    </button>
+                </div>
+            </div>
+
+            <!-- Progress Steps -->
+            <div id="progressArea" class="hidden px-6 py-4 border-b border-slate-100 dark:border-slate-700">
+                <div class="flex items-center justify-between mb-3">
+                    <!-- Step indicators -->
+                    <div class="flex items-center gap-0 flex-grow">
+                        <div class="flex flex-col items-center">
+                            <div id="step1" class="step-dot bg-slate-300 dark:bg-slate-600"></div>
+                            <span class="text-[9px] text-slate-400 mt-1">Download</span>
+                        </div>
+                        <div id="line1" class="step-line flex-grow bg-slate-200 dark:bg-slate-600 mx-1"></div>
+                        <div class="flex flex-col items-center">
+                            <div id="step2" class="step-dot bg-slate-300 dark:bg-slate-600"></div>
+                            <span class="text-[9px] text-slate-400 mt-1">Upload</span>
+                        </div>
+                        <div id="line2" class="step-line flex-grow bg-slate-200 dark:bg-slate-600 mx-1"></div>
+                        <div class="flex flex-col items-center">
+                            <div id="step3" class="step-dot bg-slate-300 dark:bg-slate-600"></div>
+                            <span class="text-[9px] text-slate-400 mt-1">Analyze</span>
+                        </div>
+                        <div id="line3" class="step-line flex-grow bg-slate-200 dark:bg-slate-600 mx-1"></div>
+                        <div class="flex flex-col items-center">
+                            <div id="step4" class="step-dot bg-slate-300 dark:bg-slate-600"></div>
+                            <span class="text-[9px] text-slate-400 mt-1">Done</span>
+                        </div>
+                    </div>
+                </div>
+                <!-- Progress bar -->
+                <div class="w-full h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                    <div id="progressBar" class="progress-fill h-full bg-blue-500 rounded-full" style="width: 0%"></div>
+                </div>
+                <p id="progressMsg" class="text-xs text-slate-500 dark:text-slate-400 mt-2 text-center"></p>
+            </div>
+
+            <!-- Output Content -->
+            <div id="outputContainer" class="flex-grow overflow-y-auto p-5 md:p-7">
+                <!-- Empty State -->
+                <div id="emptyState" class="h-full flex flex-col items-center justify-center select-none">
+                    <div
+                        class="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center mb-4">
+                        <i class="fa-solid fa-wand-magic-sparkles text-2xl text-slate-300 dark:text-slate-500"></i>
+                    </div>
+                    <p class="text-sm font-medium text-slate-400 dark:text-slate-500">Ready to transform content</p>
+                    <p class="text-xs text-slate-300 dark:text-slate-600 mt-1">Paste a video URL and press Generate</p>
+                </div>
+                <!-- Result -->
+                <div id="textContent" class="prose max-w-none dark:text-slate-200 hidden"></div>
+            </div>
+        </div>
+
+        <!-- ==================== HISTORY DRAWER ==================== -->
+        <div id="historyDrawer"
+            class="history-drawer absolute top-0 right-0 w-80 h-full bg-white dark:bg-slate-800 border-l border-slate-200 dark:border-slate-700 z-40 flex flex-col shadow-2xl">
+            <div
+                class="h-14 px-5 flex justify-between items-center border-b border-slate-200 dark:border-slate-700 shrink-0">
+                <h3 class="font-semibold text-sm">History</h3>
+                <div class="flex gap-1">
+                    <button onclick="clearAllHistory()"
+                        class="text-[11px] text-red-500 hover:text-red-700 transition px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20">Clear
+                        All</button>
+                    <button onclick="toggleHistory()"
+                        class="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-white transition">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+            </div>
+            <div id="historyList" class="flex-grow overflow-y-auto p-3 space-y-2">
+                <p class="text-xs text-slate-400 text-center py-8">No history yet</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== SETTINGS MODAL ==================== -->
+    <div id="settingsModal"
+        class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div
+            class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md p-7 border border-slate-200 dark:border-slate-700">
+            <div class="flex justify-between items-center mb-5">
+                <h2 class="text-lg font-bold">Settings</h2>
+                <button onclick="closeSettings()"
+                    class="text-slate-400 hover:text-slate-700 dark:hover:text-white transition">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Gemini API
+                Key</label>
+            <input type="password" id="apiKeyInput" placeholder="AIzaSy..."
+                class="w-full p-3 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg mb-1 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+            <p class="text-[10px] text-slate-400 mb-5">Stored locally. Never sent to third parties. <a
+                    href="https://aistudio.google.com/app/apikey" target="_blank"
+                    class="text-blue-500 hover:underline">Get free key →</a></p>
+
+            <button onclick="saveSettings()"
+                class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition text-sm">
+                Save Settings
+            </button>
+        </div>
+    </div>
+
+    <!-- ==================== JAVASCRIPT ==================== -->
+    <script>
+        // ===================== STATE =====================
+        let currentJobId = null;
+        let pollInterval = null;
+        let currentResultText = '';
+
+        // ===================== INIT =====================
+        window.onload = async function () {
+            // Theme
+            if (localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+                document.getElementById('themeIcon').className = 'fa-solid fa-sun text-sm';
+            }
+
+            try {
+                // Load config
+                const cfgRes = await fetch('/api/config');
+                const cfg = await cfgRes.json();
+
+                if (!cfg.api_key) openSettings();
+
+                // Load models
+                const modRes = await fetch('/api/models');
+                const modData = await modRes.json();
+                const sel = document.getElementById('modelInput');
+                modData.models.forEach(m => {
+                    const opt = document.createElement('option');
+                    opt.value = m.id;
+                    opt.textContent = m.name;
+                    if (m.id === cfg.default_model) opt.selected = true;
+                    sel.appendChild(opt);
+                });
+
+                // Restore defaults
+                if (cfg.default_lang) document.getElementById('langInput').value = cfg.default_lang;
+                if (cfg.default_style) {
+                    const radio = document.querySelector(`input[name="style"][value="${cfg.default_style}"]`);
+                    if (radio) radio.checked = true;
+                }
+            } catch (e) { console.error(e); }
+
+            // URL input platform detection
+            document.getElementById('urlInput').addEventListener('input', updatePlatformBadge);
+
+            // Ctrl+Enter shortcut
+            document.addEventListener('keydown', e => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                    e.preventDefault();
+                    startGeneration();
+                }
+            });
+        };
+
+        // ===================== THEME =====================
+        function toggleDarkMode() {
+            document.documentElement.classList.toggle('dark');
+            const isDark = document.documentElement.classList.contains('dark');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            document.getElementById('themeIcon').className = isDark ? 'fa-solid fa-sun text-sm' : 'fa-solid fa-moon text-sm';
+        }
+
+        // ===================== TOAST =====================
+        function toast(msg, type = 'info', duration = 4000) {
+            const container = document.getElementById('toastContainer');
+            const colors = {
+                success: 'bg-emerald-600 text-white',
+                error: 'bg-red-600 text-white',
+                info: 'bg-slate-800 dark:bg-slate-600 text-white',
+                warning: 'bg-amber-500 text-white',
+            };
+            const icons = {
+                success: 'fa-check-circle',
+                error: 'fa-exclamation-circle',
+                info: 'fa-info-circle',
+                warning: 'fa-exclamation-triangle',
+            };
+            const el = document.createElement('div');
+            el.className = `toast-enter ${colors[type]} px-4 py-3 rounded-xl shadow-lg flex items-start gap-3 text-sm max-w-sm`;
+            el.innerHTML = `<i class="fa-solid ${icons[type]} mt-0.5 shrink-0"></i><span class="leading-relaxed">${msg}</span>`;
+            container.appendChild(el);
+
+            setTimeout(() => {
+                el.classList.remove('toast-enter');
+                el.classList.add('toast-exit');
+                setTimeout(() => el.remove(), 300);
+            }, duration);
+        }
+
+        // ===================== PLATFORM DETECTION =====================
+        function updatePlatformBadge() {
+            const url = document.getElementById('urlInput').value.toLowerCase();
+            const badge = document.getElementById('platformBadge');
+            const iconMap = {
+                'facebook.com': '<i class="fa-brands fa-facebook text-blue-600 text-sm"></i>',
+                'fb.watch': '<i class="fa-brands fa-facebook text-blue-600 text-sm"></i>',
+                'youtube.com': '<i class="fa-brands fa-youtube text-red-600 text-sm"></i>',
+                'youtu.be': '<i class="fa-brands fa-youtube text-red-600 text-sm"></i>',
+                'instagram.com': '<i class="fa-brands fa-instagram text-pink-600 text-sm"></i>',
+                'tiktok.com': '<i class="fa-brands fa-tiktok text-sm"></i>',
+                'twitter.com': '<i class="fa-brands fa-x-twitter text-sm"></i>',
+                'x.com': '<i class="fa-brands fa-x-twitter text-sm"></i>',
+            };
+            for (const [domain, icon] of Object.entries(iconMap)) {
+                if (url.includes(domain)) { badge.innerHTML = icon; return; }
+            }
+            badge.innerHTML = '<i class="fa-solid fa-link text-xs text-slate-300 dark:text-slate-500"></i>';
+        }
+
+        // ===================== SETTINGS =====================
+        function openSettings() { document.getElementById('settingsModal').classList.remove('hidden'); }
+        function closeSettings() { document.getElementById('settingsModal').classList.add('hidden'); }
+
+        async function saveSettings() {
+            const key = document.getElementById('apiKeyInput').value.trim();
+            if (!key) return toast('Please enter an API key.', 'warning');
+            try {
+                const res = await fetch('/api/config', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ api_key: key })
+                });
+                const data = await res.json();
+                if (data.success) { closeSettings(); toast('API Key saved!', 'success'); }
+                else toast(data.error, 'error');
+            } catch (e) { toast('Failed to save.', 'error'); }
+        }
+
+        // ===================== CUSTOM INSTRUCTION =====================
+        function toggleCustomInstruction() {
+            const w = document.getElementById('ciWrapper');
+            const c = document.getElementById('ciChevron');
+            w.classList.toggle('open');
+            c.style.transform = w.classList.contains('open') ? 'rotate(90deg)' : '';
+        }
+
+        // ===================== HISTORY =====================
+        function toggleHistory() { document.getElementById('historyDrawer').classList.toggle('open'); loadHistory(); }
+
+        async function loadHistory() {
+            try {
+                const res = await fetch('/api/history');
+                const data = await res.json();
+                const list = document.getElementById('historyList');
+                if (!data.history || data.history.length === 0) {
+                    list.innerHTML = '<p class="text-xs text-slate-400 text-center py-8">No history yet</p>';
+                    return;
+                }
+                list.innerHTML = data.history.map(h => {
+                    const date = new Date(h.timestamp);
+                    const timeStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    const title = h.video_title ? (h.video_title.length > 40 ? h.video_title.slice(0, 40) + '...' : h.video_title) : 'Untitled';
+                    return `
+                <div class="p-3 bg-slate-50 dark:bg-slate-700/50 rounded-xl cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition group" onclick="loadHistoryItem('${h.id}')">
+                    <div class="flex justify-between items-start">
+                        <div class="flex-grow min-w-0">
+                            <p class="text-xs font-medium truncate">${title}</p>
+                            <div class="flex items-center gap-2 mt-1">
+                                <span class="text-[10px] px-1.5 py-0.5 rounded badge-${h.platform} text-white">${h.platform}</span>
+                                <span class="text-[10px] text-slate-400">${h.style} · ${h.lang}</span>
+                            </div>
+                            <p class="text-[10px] text-slate-400 mt-1">${timeStr} · ${h.word_count || 0} words</p>
+                        </div>
+                        <button onclick="event.stopPropagation(); deleteHistoryItem('${h.id}')" class="text-slate-300 hover:text-red-500 transition opacity-0 group-hover:opacity-100 p-1">
+                            <i class="fa-solid fa-trash-can text-[10px]"></i>
+                        </button>
+                    </div>
+                </div>`;
+                }).join('');
+            } catch (e) { console.error(e); }
+        }
+
+        function loadHistoryItem(id) {
+            fetch('/api/history').then(r => r.json()).then(data => {
+                const item = data.history.find(h => h.id === id);
+                if (!item) return;
+                showResult(item.result, item.lang === 'Bengali');
+                toggleHistory();
+                toast('Loaded from history', 'info', 2000);
+            });
+        }
+
+        async function deleteHistoryItem(id) {
+            await fetch(`/api/history/${id}`, { method: 'DELETE' });
+            loadHistory();
+            toast('Deleted', 'info', 2000);
+        }
+
+        async function clearAllHistory() {
+            await fetch('/api/history', { method: 'DELETE' });
+            loadHistory();
+            toast('History cleared', 'info', 2000);
+        }
+
+        // ===================== GENERATION =====================
+        async function startGeneration() {
+            const url = document.getElementById('urlInput').value.trim();
+            const lang = document.getElementById('langInput').value;
+            const style = document.querySelector('input[name="style"]:checked').value;
+            const model = document.getElementById('modelInput').value;
+            const ci = document.getElementById('ciInput').value.trim();
+
+            if (!url) return toast('Please paste a video URL.', 'warning');
+
+            // UI → Loading
+            const btn = document.getElementById('generateBtn');
+            btn.disabled = true;
+            document.getElementById('btnText').innerText = 'Processing...';
+            document.getElementById('btnLoader').classList.remove('hidden');
+
+            // Show progress area
+            resetProgress();
+            document.getElementById('progressArea').classList.remove('hidden');
+            document.getElementById('emptyState').classList.add('hidden');
+            document.getElementById('textContent').classList.add('hidden');
+            hideToolbarButtons();
+
+            try {
+                const res = await fetch('/api/generate', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url, lang, style, model, custom_instruction: ci })
+                });
+                const data = await res.json();
+
+                if (res.status === 401) { openSettings(); throw new Error('apikey'); }
+                if (!data.success) { toast(data.error, 'error', 6000); resetUI(); return; }
+
+                currentJobId = data.job_id;
+                startPolling(lang);
+            } catch (e) {
+                if (e.message !== 'apikey') toast('Request failed. Check console.', 'error');
+                resetUI();
+            }
+        }
+
+        function startPolling(lang) {
+            pollInterval = setInterval(async () => {
+                try {
+                    const res = await fetch(`/api/status/${currentJobId}`);
+                    const job = await res.json();
+
+                    updateProgress(job);
+
+                    if (job.status === 'done') {
+                        clearInterval(pollInterval);
+                        showResult(job.result, lang === 'Bengali');
+                        toast('Content generated!', 'success');
+                        resetUI();
+                        // Fade out progress after a moment
+                        setTimeout(() => document.getElementById('progressArea').classList.add('hidden'), 1500);
+                    } else if (job.status === 'error') {
+                        clearInterval(pollInterval);
+                        toast(job.error, 'error', 8000);
+                        resetUI();
+                        document.getElementById('progressArea').classList.add('hidden');
+                        document.getElementById('emptyState').classList.remove('hidden');
+                    }
+                } catch (e) {
+                    clearInterval(pollInterval);
+                    toast('Lost connection to server.', 'error');
+                    resetUI();
+                }
+            }, 800);
+        }
+
+        // ===================== PROGRESS UI =====================
+        function resetProgress() {
+            for (let i = 1; i <= 4; i++) {
+                document.getElementById(`step${i}`).className = 'step-dot bg-slate-300 dark:bg-slate-600';
+            }
+            for (let i = 1; i <= 3; i++) {
+                document.getElementById(`line${i}`).className = 'step-line flex-grow bg-slate-200 dark:bg-slate-600 mx-1';
+            }
+            document.getElementById('progressBar').style.width = '0%';
+            document.getElementById('progressMsg').innerText = '';
+        }
+
+        function updateProgress(job) {
+            document.getElementById('progressBar').style.width = job.progress + '%';
+            document.getElementById('progressMsg').innerText = job.message || '';
+
+            const stepMap = { downloading: 1, uploading: 2, processing: 3, generating: 3, done: 4 };
+            const activeStep = stepMap[job.step] || 0;
+
+            for (let i = 1; i <= 4; i++) {
+                const dot = document.getElementById(`step${i}`);
+                if (i < activeStep) dot.className = 'step-dot bg-blue-500';
+                else if (i === activeStep) dot.className = 'step-dot bg-blue-500 active';
+                else dot.className = 'step-dot bg-slate-300 dark:bg-slate-600';
+            }
+            for (let i = 1; i <= 3; i++) {
+                const line = document.getElementById(`line${i}`);
+                line.className = i < activeStep
+                    ? 'step-line flex-grow bg-blue-500 mx-1'
+                    : 'step-line flex-grow bg-slate-200 dark:bg-slate-600 mx-1';
+            }
+        }
+
+        // ===================== RESULT DISPLAY =====================
+        function showResult(text, isBangla) {
+            currentResultText = text;
+            const el = document.getElementById('textContent');
+            el.innerHTML = marked.parse(text);
+            el.className = `prose max-w-none dark:text-slate-200 ${isBangla ? 'font-bangla' : ''}`;
+            el.classList.remove('hidden');
+            document.getElementById('emptyState').classList.add('hidden');
+
+            // Word count
+            const wc = text.split(/\s+/).filter(Boolean).length;
+            const wcEl = document.getElementById('wordCount');
+            wcEl.innerText = `${wc} words`;
+            wcEl.classList.remove('hidden');
+
+            // Show toolbar buttons
+            showToolbarButtons();
+        }
+
+        function showToolbarButtons() {
+            ['copyBtn', 'exportMd', 'exportTxt'].forEach(id => document.getElementById(id).classList.remove('hidden'));
+        }
+        function hideToolbarButtons() {
+            ['copyBtn', 'exportMd', 'exportTxt'].forEach(id => document.getElementById(id).classList.add('hidden'));
+            document.getElementById('wordCount').classList.add('hidden');
+        }
+
+        // ===================== EXPORT =====================
+        function copyText() {
+            if (!currentResultText) return;
+            navigator.clipboard.writeText(currentResultText);
+            toast('Copied to clipboard!', 'success', 2000);
+        }
+
+        function exportAs(format) {
+            if (!currentResultText) return;
+            let content, mime, ext;
+            if (format === 'md') {
+                content = currentResultText;
+                mime = 'text/markdown';
+                ext = 'md';
+            } else {
+                content = document.getElementById('textContent').innerText;
+                mime = 'text/plain';
+                ext = 'txt';
+            }
+            const blob = new Blob([content], { type: mime });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `ai-studio-output.${ext}`;
+            a.click();
+            URL.revokeObjectURL(a.href);
+            toast(`Downloaded as .${ext}`, 'success', 2000);
+        }
+
+        // ===================== UI RESET =====================
+        function resetUI() {
+            const btn = document.getElementById('generateBtn');
+            btn.disabled = false;
+            document.getElementById('btnText').innerText = 'Generate Content';
+            document.getElementById('btnLoader').classList.add('hidden');
+        }
+    </script>
+</body>
+
+</html>
