@@ -58,7 +58,7 @@ Before you start, make sure you have:
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/Z-root-X/vidai-studio.git
+git clone https://github.com/zihaaaad/vidai-studio.git
 cd vidai-studio
 
 # 2. Create a virtual environment
