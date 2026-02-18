@@ -4,7 +4,7 @@
 
 # ✨ VidAI Studio
 
-**Transform any video into professional content with AI — in seconds.**
+**Transform any video into professional content with AI — or download it directly.**
 
 [![Python](https://img.shields.io/badge/Python-3.9+-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
 [![Flask](https://img.shields.io/badge/Flask-3.0+-000?style=flat-square&logo=flask)](https://flask.palletsprojects.com)
@@ -20,7 +20,7 @@
 
 ---
 
-*Paste a video link → choose your style → get AI-generated content instantly.*  
+*Paste a video link → generate AI content or download video/audio directly.*  
 *Summaries, articles, transcripts, social posts — in 6 languages.*
 
 </div>
@@ -32,13 +32,15 @@
 | Feature | Description |
 |---|---|
 | 🎬 **Multi-Platform** | Facebook, YouTube, Instagram, TikTok, Twitter/X |
+| 📥 **Video Download** | Download video as MP4 — no AI needed |
+| 🎵 **Audio Download** | Extract audio as MP3 (192kbps) — no AI needed |
 | 📝 **4 Output Styles** | Summary · Article · Transcript · Social Post |
 | 🌍 **6 Languages** | Bengali · English · Hindi · Arabic · Urdu · Spanish |
 | 🤖 **4 AI Models** | Gemini 2.0 Flash, Flash Lite, 1.5 Flash, 1.5 Pro |
 | 🌙 **Dark Mode** | Auto-detects system preference with manual toggle |
 | 📊 **Live Progress** | Real-time step-by-step processing updates |
 | 📜 **History** | Auto-saved results — reload any past generation |
-| 📥 **Export** | Download as `.md` or `.txt` |
+| 📤 **Export** | Download results as `.md` or `.txt` |
 | ✍️ **Custom Instructions** | Guide the AI with your own prompts |
 | ⌨️ **Keyboard Shortcut** | `Ctrl + Enter` to generate instantly |
 
@@ -81,11 +83,18 @@ python app.py
 
 ## 🖥️ How to Use
 
+### AI Content Generation
 1. **Paste** any video URL (Facebook, YouTube, Instagram, TikTok, etc.)
 2. **Select** your preferred AI model, language, and output style
 3. **Click** "Generate Content" (or press `Ctrl + Enter`)
 4. **Watch** the live progress: Download → Upload → Analyze → Done
 5. **Copy** or **export** your result as `.md` or `.txt`
+
+### Direct Video/Audio Download
+1. **Paste** any video URL
+2. **Click** "Video MP4" or "Audio MP3" below the Generate button
+3. **Wait** for the download to process
+4. The file downloads automatically to your computer
 
 <br/>
 
