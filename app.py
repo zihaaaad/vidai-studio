@@ -170,6 +170,7 @@ def _update_job(job_id: str, **fields):
 def _process_video(job_id, video_url, lang, style, api_key, model_id, custom_instruction):
     """Download audio → upload to Gemini → generate content. Called in a daemon thread."""
     audio_path = None
+    uploaded = None
     try:
         # Step 1 — Download audio
         _update_job(job_id, step="downloading", progress=10,
@@ -233,17 +234,29 @@ def _process_video(job_id, video_url, lang, style, api_key, model_id, custom_ins
                     message="Generating content with AI...")
         log.info("[%s] Generating (%s, %s, %s)", job_id, model_id, style, lang)
 
-        system_prompt = (
-            f"Role: Expert Content Editor and Writer.\n"
-            f"Task: Analyze the audio carefully and create a '{style}'.\n"
-            f"Language: Output strictly in {lang}.\n"
-            f"Style Guide:\n"
-            f"- Use clean, professional formatting with Markdown.\n"
-            f"- Use bold headers (##) for sections.\n"
-            f"- Use bullet points for key takeaways.\n"
-            f"- Write in a natural, professional tone.\n"
-            f"- If the language is Bengali, use natural Bengali phrasing."
-        )
+        if style == "Transcript":
+            system_prompt = (
+                f"Role: Professional Transcriber.\n"
+                f"Task: Create a verbatim transcript of the audio.\n"
+                f"Language: Output strictly in {lang}.\n"
+                f"Style Guide:\n"
+                f"- do not add any intro or outro.\n"
+                f"- Format speakers as 'Speaker 1:', 'Speaker 2:', etc. if distinguishable.\n"
+                f"- Keep timestamps if relevant/possible.\n"
+                f"- Ensure high accuracy and correct spelling."
+            )
+        else:
+            system_prompt = (
+                f"Role: Expert Content Editor and Writer.\n"
+                f"Task: Analyze the audio carefully and create a '{style}'.\n"
+                f"Language: Output strictly in {lang}.\n"
+                f"Style Guide:\n"
+                f"- Use clean, professional formatting with Markdown.\n"
+                f"- Use bold headers (##) for sections.\n"
+                f"- Use bullet points for key takeaways.\n"
+                f"- Write in a natural, professional tone.\n"
+                f"- If the language is Bengali, use natural Bengali phrasing."
+            )
 
         if custom_instruction and custom_instruction.strip():
             prompt = f"{system_prompt}\n\nAdditional User Instructions:\n{custom_instruction.strip()}"
@@ -297,11 +310,20 @@ def _process_video(job_id, video_url, lang, style, api_key, model_id, custom_ins
         _update_job(job_id, status="error", step="failed", progress=0,
                     error=parse_api_error(exc, model_id))
     finally:
+        # Cleanup local file
         if audio_path and os.path.exists(audio_path):
             try:
                 os.remove(audio_path)
             except OSError:
                 log.warning("Could not remove temp file %s", audio_path)
+        
+        # Cleanup remote Gemini file
+        if uploaded:
+            try:
+                log.info("[%s] Deleting remote file %s", job_id, uploaded.name)
+                uploaded.delete()
+            except Exception as e:
+                log.warning("[%s] Failed to delete remote file: %s", job_id, e)
 
 
 # ──────────────────────────────────────────────
