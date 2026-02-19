@@ -44,7 +44,7 @@ Just paste a link, click a button, and you're done. That's it. No complex setup,
 | 📄 **AI Transcript** | Get a written transcript of the video audio |
 | 💬 **AI Social Post** | Generate a ready-to-post social media caption |
 | 🌍 **6 Languages** | Bengali · English · Hindi · Arabic · Urdu · Spanish |
-| 🤖 **4 AI Models** | Choose between Gemini 2.0 Flash, Flash Lite, 1.5 Flash, or 1.5 Pro |
+| 🤖 **3 AI Models** | Gemini 2.0 Flash, 2.0 Flash Lite, 2.5 Flash |
 | 🌙 **Dark Mode** | Easy on the eyes — toggles automatically or manually |
 | 📊 **Live Progress** | See exactly what's happening: Download → Upload → Analyze → Done |
 | 📜 **History** | Your past results are saved — reload anytime |
