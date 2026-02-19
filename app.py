@@ -48,7 +48,6 @@ AVAILABLE_MODELS = [
     {"id": "gemini-1.5-flash",      "name": "Gemini 1.5 Flash",      "desc": "Fast & cost-efficient"},
     {"id": "gemini-1.5-pro",        "name": "Gemini 1.5 Pro",        "desc": "High quality, complex tasks"},
     {"id": "gemini-2.0-flash-exp",  "name": "Gemini 2.0 Flash (Exp)", "desc": "Next-gen speed & intelligence"},
-    {"id": "gemini-pro",            "name": "Gemini 1.0 Pro",        "desc": "Standard legacy model"},
 ]
 
 # Thread-safe job tracking
@@ -261,12 +260,16 @@ def _process_video(job_id, video_url, lang, style, api_key, model_id, custom_ins
             result_text = response.text
         except Exception as e:
             if "not found" in str(e).lower() or "404" in str(e):
-                log.warning("[%s] Model %s not found, falling back to gemini-pro", job_id, model_id)
-                _update_job(job_id, message="Model unavailable, trying fallback (Gemini 1.0 Pro)...")
-                model = genai.GenerativeModel("gemini-pro")
-                response = model.generate_content([prompt, uploaded])
-                result_text = response.text
-                model_id = "gemini-pro (fallback)"
+                log.warning("[%s] Model %s not found, falling back to gemini-1.5-flash", job_id, model_id)
+                _update_job(job_id, message="Model unavailable, trying fallback (Gemini 1.5 Flash)...")
+                try:
+                    model = genai.GenerativeModel("gemini-1.5-flash")
+                    response = model.generate_content([prompt, uploaded])
+                    result_text = response.text
+                    model_id = "gemini-1.5-flash (fallback)"
+                except Exception as e2:
+                    log.error("[%s] Fallback failed: %s", job_id, e2)
+                    raise e  # Raise original error if fallback fails
             else:
                 raise e
 
